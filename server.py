@@ -4,11 +4,16 @@ import json
 
 
 def send_img(conn, path):
+    f_name = path[path.rfind('\\'):]
+    print(f_name)
+    conn.send(f_name.encode('utf-8'))
     with open(path, 'rb') as f:
         chunk = f.read(4096)
         while chunk:
             conn.send(chunk)
             chunk = f.read(4096)
+    print('end')
+    conn.send('END'.encode('utf-8'))
 
 
 def start_server():
@@ -20,11 +25,29 @@ def start_server():
         while True:
             conn, addr = sock.accept()
             print(conn, addr)
-            thread_registration = threading.Thread(target=handle_client, args=(conn, addr))
+            thread_registration = threading.Thread(target=handle_client, args=(conn,))
             thread_registration.start()
     except Exception as e:
         print(e)
         sock.close()
+
+
+def send_profile(conn, name, login=None):
+    if login:
+        for i in workers:
+            if i['login'] == login:
+                worker = i
+                break
+    else:
+        for i in workers:
+            if i['name'] == name and not i['login']:
+                worker = i
+                break
+    conn.send(json.dumps(worker).encode('utf-8'))
+    if worker['profile_photo']:
+        send_img(conn, f'server_imgs\\{worker['profile_photo']}')
+    for i in worker['certificates']:
+        send_img(conn, f'server_imgs\\{i}')
 
 
 def handle_client(conn):
@@ -51,28 +74,26 @@ def handle_client(conn):
         elif data[data.rfind(';') + 1:] == 'register': # idk, need to more braining
             pass
 
+    send_img(conn, r"D:\Documents\Pipthon\HRM\server_imgs\0.jpg")
+
 
 if __name__ == '__main__':
     # format: [{'login': <login>, 'password': <password>}]
-    HRs = [{'login': 'shepeli18', 'password': '9', 'post': 'dibil'},
-           {'login': 'V3nalita', 'password': '9', 'post': 'nigger'},
-           {'login': 'Sak4ra', 'password': '9', 'post': 'zadrot'}]
+    HRs = []
     try:
         with open('HRs.json', encoding='utf-8') as f:
             HRs = json.load(f)
     except FileNotFoundError:
-        with open('HRs.json', encoding='utf-8') as f:
-            json.dump([{'login': 'shepeli18', 'password': '9', 'post': 'dibil'},
-                            {'login': 'V3nalita', 'password': '9', 'post': 'nigger'},
-                            {'login': 'Sak4ra', 'password': '9', 'post': 'zadrot'}], f)
+        with open('HRs.json', 'w', encoding='utf-8') as f:
+            json.dump([], f)
 
     # format: [{'login': <login>, 'password': <password>, etc.}]
-    workers = [{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}]
+    workers = []
     try:
         with open('workers.json', encoding='utf-8') as f:
             workers = json.load(f)
     except FileNotFoundError:
-        with open('HRs.json', encoding='utf-8') as f:
-            json.dump([{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}], f)
+        with open('workers.json', 'w', encoding='utf-8') as f:
+            json.dump([], f)
     print(HRs, workers)
     start_server()
