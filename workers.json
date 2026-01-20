@@ -2,16 +2,33 @@
 {
     "login": "shepeli18",
     "password": "9",
-    "post": "dibil"
+    "post": "main_dev",
+    "profile_photo": "",
+    "certificates": ["1.png", "2.png", "3.png"],
+    "name": "Michael SHperling"
 },
 {
     "login": "V3nalita",
     "password": "9",
-    "post": "nigger"
+    "post": "UI_dev",
+    "profile_photo": "",
+    "certificates": [],
+    "name": "Vyachislav Hnikov"
 },
 {
     "login": "Sak4ra",
     "password": "9",
-    "post": "zadrot"
+    "post": "worker",
+    "profile_photo": "",
+    "certificates": [],
+    "name": "Gashish"
+},
+{
+    "login": "oleg",
+    "password": "0",
+    "post": "genius",
+    "profile_photo": "0.jpg",
+    "certificates": [],
+    "name": "oleg."
 }
 ]
