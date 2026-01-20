@@ -13,12 +13,18 @@ def close_app():
 
 def get_img():
     global sock
-    # path\imgs\count_of_files_in_the_repo
-    with open(getcwd() + '\\imgs' + str(len(listdir(getcwd() + '\\imgs'))), 'wb') as f:
+    f_name = sock.recv(4096).decode('utf-8')
+    with open(f'{getcwd()}\\imgs\\{f_name}', 'wb') as f:
         chunk = sock.recv(4096)
-        while chunk:
-            f.write(chunk)
-            chunk = sock.recv(4096)
+        while True:
+            try:
+                if chunk.decode('utf-8') == 'END':
+                    break
+                raise ValueError('IMG NOT FINISHED')
+            except (ValueError, UnicodeDecodeError):
+                f.write(chunk)
+                chunk = sock.recv(4096)
+    print('END')
 
 
 def build_worker_ui():
@@ -42,6 +48,9 @@ def login_action(register=False):
     if 'SUCCESS' == data[:data.find(';')]:
         login_frame.pack_forget()
         print(data)
+
+        get_img()
+        print('end')
     else:
         messagebox.showerror('FAIL', 'Wrong name or password')
 
@@ -68,4 +77,5 @@ if __name__ == '__main__':
     tk.Button(login_frame, text='Log in', command=lambda: login_action(), cursor='hand2').pack(pady=5)
     tk.Button(login_frame, text='Register', command=lambda: login_action(True), cursor='hand2').pack(pady=5)
 
+    root.protocol("WM_DELETE_WINDOW", close_app)
     root.mainloop()
