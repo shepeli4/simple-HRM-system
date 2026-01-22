@@ -45,7 +45,7 @@ def send_profile(conn, name, login=None):
                 break
     conn.send(json.dumps(worker).encode('utf-8'))
     if worker['profile_photo']:
-        send_img(conn, f'server_imgs\\{worker['profile_photo']}')
+        send_img(conn, f'server_imgs\\{worker["profile_photo"]}')
     for i in worker['certificates']:
         send_img(conn, f'server_imgs\\{i}')
 
@@ -69,31 +69,49 @@ def handle_client(conn):
                         not_login_in = False
                         break
                 else:
-                    conn.send('FAIL'.encode('utf-8'))
+                    conn.send('FAIL;Wrong name or password'.encode('utf-8'))
 
-        elif data[data.rfind(';') + 1:] == 'register': # idk, need to more braining
-            pass
-
-    send_img(conn, r"D:\Documents\Pipthon\HRM\server_imgs\0.jpg")
+        elif data[data.rfind(';') + 1:] == 'registration': # idk, need to more braining
+            name = data[:data.find(':')]
+            password = data[data.find(':') + 1:data.find(';')]
+            if name in list(map(lambda x: x['login'], HRs)) or name in list(map(lambda x: x['login'], logins_without_account)):
+                conn.send('FAIL;User with this login already exist'.encode('utf-8'))
+                continue
+            else:
+                conn.send('SUCCESS;dummy'.encode('utf-8'))
+                logins_without_account.append({'login': name, 'password': password})
+                with open('logins_without_account.json', 'w', encoding='utf-8') as f:
+                    json.dump(logins_without_account, f)
 
 
 if __name__ == '__main__':
     # format: [{'login': <login>, 'password': <password>}]
-    HRs = []
+    HRs = [{'login': 'shepeli18', 'password': '9'},
+           {'login': 'V3nalita', 'password': '9'}]
     try:
         with open('HRs.json', encoding='utf-8') as f:
             HRs = json.load(f)
     except FileNotFoundError:
-        with open('HRs.json', 'w', encoding='utf-8') as f:
-            json.dump([], f)
+        with open('HRs.json', encoding='utf-8') as f:
+            json.dump([{'login': 'shepeli18', 'password': '9'},
+                            {'login': 'V3nalita', 'password': '9'}], f)
 
-    # format: [{'login': <login>, 'password': <password>, etc.}]
-    workers = []
+    # format: [{'login': <login>, 'password': <password>...}]
+    workers = [{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}]
     try:
         with open('workers.json', encoding='utf-8') as f:
             workers = json.load(f)
     except FileNotFoundError:
-        with open('workers.json', 'w', encoding='utf-8') as f:
-            json.dump([], f)
+        with open('workers.json', encoding='utf-8') as f:
+            json.dump([{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}], f)
     print(HRs, workers)
+
+    # format: [{'login': <login>, 'password': <password>}]
+    logins_without_account = []
+    try:
+        with open('logins_without_account.json', encoding='utf-8') as f:
+            logins_without_account = json.load(f)
+    except FileNotFoundError:
+        with open('logins_without_account.json', 'w', encoding='utf-8') as f:
+            json.dump([], f)
     start_server()
