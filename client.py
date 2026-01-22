@@ -1,3 +1,4 @@
+import json
 import socket
 import tkinter as tk
 from tkinter import messagebox
@@ -27,6 +28,18 @@ def get_img():
     print('END')
 
 
+def get_profile():
+    global sock
+    # "login": <login>, "password": <password>, etc.
+    worker = json.loads(sock.recv(4096).decode('utf-8'))
+    if worker['name']:
+        get_img()
+    for i in worker['certificates']:
+        get_img()
+
+    # build_worker_ui()
+
+
 def build_worker_ui():
     pass
 
@@ -45,18 +58,24 @@ def login_action(register=False):
     sock.send(data.encode('utf-8'))
     data = sock.recv(1024).decode('utf-8')
 
+    print(data)
     if 'SUCCESS' == data[:data.find(';')]:
         login_frame.pack_forget()
         print(data)
 
-        get_img()
-        print('end')
+        if data[data.find(';') + 1:] == 'HR':
+            pass
+        elif data[data.find(';') + 1:] == 'worker':
+            pass
+        else:
+            messagebox.showinfo('SUCCESS', 'Please, go to your HR and ask him for registrate you\n:)')
+            root.destroy()
     else:
-        messagebox.showerror('FAIL', 'Wrong name or password')
+        messagebox.showerror('FAIL', data[data.find(';') + 1:])
 
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.1.31', 1800))  # --- CHANGE IP ON PUBLIC ---
+    sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
 
     root = tk.Tk()
     root.title('ne')
