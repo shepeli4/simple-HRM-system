@@ -1,17 +1,19 @@
 import socket
 import threading
 import json
-
+import time
 
 def send_img(conn, path):
     f_name = path[path.rfind('\\'):]
     print(f_name)
     conn.send(f_name.encode('utf-8'))
+    time.sleep(0.05)
     with open(path, 'rb') as f:
-        chunk = f.read(4096)
+        chunk = f.read(16384)
         while chunk:
             conn.send(chunk)
-            chunk = f.read(4096)
+            chunk = f.read(16384)
+    time.sleep(0.05)
     print('end')
     conn.send('END'.encode('utf-8'))
 
@@ -33,6 +35,7 @@ def start_server():
 
 
 def send_profile(conn, name, login=None):
+    print('send_profile')
     if login:
         for i in workers:
             if i['login'] == login:
@@ -43,7 +46,9 @@ def send_profile(conn, name, login=None):
             if i['name'] == name and not i['login']:
                 worker = i
                 break
+    print(worker)
     conn.send(json.dumps(worker).encode('utf-8'))
+    time.sleep(0.1)
     if worker['profile_photo']:
         send_img(conn, f'server_imgs\\{worker["profile_photo"]}')
     for i in worker['certificates']:
@@ -67,6 +72,7 @@ def handle_client(conn):
                     if i['login'] == name and i['password'] == password:
                         conn.send('SUCCESS;worker'.encode('utf-8'))
                         not_login_in = False
+                        send_profile(conn, i['name'], name)
                         break
                 else:
                     conn.send('FAIL;Wrong name or password'.encode('utf-8'))
