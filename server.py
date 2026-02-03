@@ -2,20 +2,23 @@ import socket
 import threading
 import json
 import time
+import os
 
 def send_img(conn, path):
     f_name = path[path.rfind('\\'):]
+    file_size = os.path.getsize(path)
     print(f_name)
-    conn.send(f_name.encode('utf-8'))
-    time.sleep(0.05)
+    # file_name:file_size(bytes)
+    conn.send(f'{f_name};{file_size}'.encode('utf-8'))
+    # time.sleep(0.05)
     with open(path, 'rb') as f:
-        chunk = f.read(16384)
+        chunk = f.read(4096)
         while chunk:
             conn.send(chunk)
-            chunk = f.read(16384)
+            chunk = f.read(4096)
     time.sleep(0.05)
-    print('end')
-    conn.send('END'.encode('utf-8'))
+    print('img_sent')
+    # conn.send('END'.encode('utf-8'))
 
 
 def start_server():
@@ -55,6 +58,21 @@ def send_profile(conn, name, login=None):
         send_img(conn, f'server_imgs\\{i}')
 
 
+def user_communication(conn):
+    while True:
+        data = conn.recv(1024)
+        command, args = data[:data.find(';')], data[data.find(';') + 1:]
+        if command == 'CHANGE_DESC':
+            # args = '<description>:<worker_name>;<worker_login>'
+            desc, worker_name, worker_login = args[:args.rfind(':')], args[args.rfind(':') + 1:args.rfind(';')], args[args.rfind(';') + 1:]
+            if worker_login:
+                for i in range(len(workers)):
+                    if workers[i]['login'] == worker_login:
+                        workers[i]['description'] = desc
+                        with open('workers.json', 'w') as f:
+                            json.dump(workers, f)
+
+
 def handle_client(conn):
     not_login_in = True
     while not_login_in:
@@ -88,6 +106,9 @@ def handle_client(conn):
                 logins_without_account.append({'login': name, 'password': password})
                 with open('logins_without_account.json', 'w', encoding='utf-8') as f:
                     json.dump(logins_without_account, f)
+
+    thread_registration = threading.Thread(target=user_communication, args=(conn,))
+    thread_registration.start()
 
 
 if __name__ == '__main__':
