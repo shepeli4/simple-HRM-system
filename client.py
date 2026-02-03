@@ -18,18 +18,13 @@ def close_app():
 
 def get_img():
     global sock
-    f_name = sock.recv(4096).decode('utf-8')
+    f_name, f_size = sock.recv(4096).decode('utf-8').split(';')
+    f_size = int(f_size)
+    print(f_name, f_size)
     with open(f'{getcwd()}\\imgs\\{f_name}', 'wb') as f:
-        chunk = sock.recv(16384)
-        while True:
-            try:
-                if chunk.decode('utf-8') == 'END':
-                    break
-                raise ValueError('IMG NOT FINISHED')
-            except (ValueError, UnicodeDecodeError):
-                f.write(chunk)
-                chunk = sock.recv(4096)
-    print('END')
+        for i in range(f_size // 4096 + (1 if f_size % 4096 else 0)):
+            chunk = sock.recv(4096)
+            f.write(chunk)
 
 
 def get_profile():
@@ -46,6 +41,10 @@ def get_profile():
     build_worker_ui(worker)
 
 
+def change_description(worker_login, worker_name, new_desc):
+    sock.send(f'CHANGE_DESC;{new_desc}:{worker_name};{worker_login}'.encode('utf-8'))
+
+
 def build_worker_ui(worker):
     global tk
 
@@ -60,7 +59,10 @@ def build_worker_ui(worker):
     frame2.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
     frame3.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
 
-    pil_image = Image.open(f'imgs/{worker["profile_photo"]}')
+    if worker['profile_photo']:
+        pil_image = Image.open(f'imgs/{worker["profile_photo"]}')
+    else:
+        pil_image = Image.open(f'default_profile_pic.jpg')
     resized_image = pil_image.resize((400, 500), Image.Resampling.LANCZOS)
     img = ImageTk.PhotoImage(resized_image)
     image_label = tk.Label(frame1, image=img)
@@ -68,7 +70,7 @@ def build_worker_ui(worker):
     image_label.image = img
     method_lbl = tk.Label(
         frame1,
-        text='Олег',
+        text=worker['name'],
         bg='white',
         font=('Helvetica', 10),
         height=1
@@ -76,7 +78,7 @@ def build_worker_ui(worker):
     method_lbl.pack(padx=5, pady=5, expand=False)
     method_lbl = tk.Label(
         frame1,
-        text='Username',
+        text=worker['login'] if worker['login'] else '',
         bg='white',
         font=('Helvetica', 10),
         height=1
@@ -84,7 +86,7 @@ def build_worker_ui(worker):
     method_lbl.pack(padx=5, pady=3)
     method_lbl = tk.Label(
         frame1,
-        text='Post',
+        text=worker['post'],
         bg='white',
         font=('Helvetica', 10),
         height=1
@@ -92,6 +94,7 @@ def build_worker_ui(worker):
     method_lbl.pack(padx=5, pady=5)
     desc = scrolledtext.ScrolledText(frame2, width=40, height=33)
     desc.grid(column=1, row=1)
+    desc.insert(tk.END, worker['description'])
     btn = tk.Button(
         frame2,
         text='Изменить описание',
