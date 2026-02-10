@@ -8,17 +8,14 @@ def send_img(conn, path):
     f_name = path[path.rfind('\\'):]
     file_size = os.path.getsize(path)
     print(f_name)
-    # file_name:file_size(bytes)
-    conn.send(f'{f_name};{file_size}'.encode('utf-8'))
-    # time.sleep(0.05)
+    # file_name;file_size(bytes);\x00\x00\x00\x00....
+    conn.send(f'{f_name};{file_size};'.encode('utf-8') + bytearray(512 - len(f'{f_name};{file_size};'.encode('utf-8'))))
     with open(path, 'rb') as f:
         chunk = f.read(4096)
         while chunk:
             conn.send(chunk)
             chunk = f.read(4096)
-    time.sleep(0.05)
     print('img_sent')
-    # conn.send('END'.encode('utf-8'))
 
 
 def start_server():
@@ -60,7 +57,7 @@ def send_profile(conn, name, login=None):
 
 def user_communication(conn):
     while True:
-        data = conn.recv(1024)
+        data = conn.recv(1024).decode('utf-8')
         command, args = data[:data.find(';')], data[data.find(';') + 1:]
         if command == 'CHANGE_DESC':
             # args = '<description>:<worker_name>;<worker_login>'
@@ -71,6 +68,10 @@ def user_communication(conn):
                         workers[i]['description'] = desc
                         with open('workers.json', 'w') as f:
                             json.dump(workers, f)
+
+        elif command == 'EXIT':
+            print('user left')
+            return
 
 
 def handle_client(conn):

@@ -9,6 +9,8 @@ import platform
 
 
 def close_app():
+    global sock
+    sock.send('EXIT;'.encode('utf-8'))
     folder_path = getcwd() + '\\imgs'
     for item in listdir(folder_path):
         item_path = path.join(folder_path, item)
@@ -18,20 +20,21 @@ def close_app():
 
 def get_img():
     global sock
-    f_name, f_size = sock.recv(4096).decode('utf-8').split(';')
+    f_name, f_size, buff = sock.recv(512).decode('utf-8').split(';')
     f_size = int(f_size)
-    print(f_name, f_size)
     with open(f'{getcwd()}\\imgs\\{f_name}', 'wb') as f:
-        for i in range(f_size // 4096 + (1 if f_size % 4096 else 0)):
+        for i in range(f_size // 4096):
             chunk = sock.recv(4096)
             f.write(chunk)
+        chunk = sock.recv(f_size - f_size // 4096 * 4096)
+        f.write(chunk)
 
 
 def get_profile():
     global sock
     print('get_profile')
     # "login": <login>, "password": <password>, etc.
-    worker = json.loads(sock.recv(8192).decode('utf-8'))
+    worker = json.loads(sock.recv(4096).decode('utf-8'))
     print(worker)
     if worker['profile_photo']:
         get_img()
@@ -99,7 +102,7 @@ def build_worker_ui(worker):
         frame2,
         text='Изменить описание',
         font=('Helvetica', 16),
-        command=''
+        command=lambda: change_description(worker['login'], worker['name'], desc.get(1.0, tk.END))
     )
     btn.grid(row=2, column=1)
     import tkinter as tk
@@ -180,7 +183,7 @@ def login_action(register=False):
 
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
+    sock.connect(('192.168.1.31', 1800))  # --- CHANGE IP ON PUBLIC ---
 
     root = tk.Tk()
     root.title('ne')
