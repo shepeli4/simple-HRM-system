@@ -7,7 +7,7 @@ import os
 def get_file(conn):
     f_name, f_size, buff = conn.recv(512).decode('utf-8').split(';')
     f_size = int(f_size)
-    with open(f'{os.getcwd()}\\imgs\\{f_name}', 'wb') as f:
+    with open(f'{os.getcwd()}\\server_imgs\\{f_name}', 'wb') as f:
         for i in range(f_size // 4096):
             chunk = conn.recv(4096)
             f.write(chunk)
@@ -86,8 +86,14 @@ def user_communication(conn):
             print('user left')
             return
 
-        elif command == 'SEND_FILE':
+        elif command == 'CHANGE_PROFILE_PIC':
             get_file(conn)
+            file_name, worker_name, worker_login = args[:args.rfind(':')], args[args.rfind(':') + 1:args.rfind(';')], args[args.rfind(';') + 1:]
+            if worker_login:
+                for i in range(len(workers)):
+                    if workers[i]['login'] == worker_login:
+                        workers[i]['profile_photo'] = file_name
+                        get_file(conn)
 
 
 def handle_client(conn):

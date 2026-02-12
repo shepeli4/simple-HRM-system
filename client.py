@@ -1,8 +1,8 @@
 import json
 import socket
 import tkinter as tk
-from tkinter import scrolledtext
-from tkinter import messagebox
+import customtkinter as ctk
+from tkinter import scrolledtext, filedialog, messagebox
 from os import getcwd, listdir, path, remove, startfile
 from PIL import Image, ImageTk
 import platform
@@ -32,6 +32,7 @@ def get_file():
 
 def send_file(file_path):
     global sock
+
     f_name = file_path[file_path.rfind('\\'):]
     file_size = path.getsize(file_path)
     print(f_name)
@@ -65,108 +66,64 @@ def change_description(worker_login, worker_name, new_desc):
     sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
 
 
+def change_profile_pic(worker_login, worker_name):
+    global sock
+    file_path = filedialog.askopenfilename(filetypes=(("Jpg Files", "*.jpg"),
+                                                      ("Png Files", "*.png"),
+                                                      ('Jpeg Files', '*.jpeg'),
+                                                      ("All Files", "*.*")))
+    f_name = file_path[file_path.rfind('\\'):]
+    message = f'CHANGE_PROFILE_PIC;{f_name}:{worker_login};{worker_name};'
+    sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
+    send_file(file_path)
+    # ПРОВЕРИТЬ РАБОТОСПОСОБНОСТЬ ПУТЁМ ДОБАВЛЕНИЯ КНОПКИ
+
+
 def build_worker_ui(worker):
-    root.grid_columnconfigure(0, weight=0)
-    root.grid_columnconfigure(1, weight=0)
-    root.grid_columnconfigure(2, weight=1)
+    for widget in root.winfo_children():
+        widget.destroy()
+
+    root.grid_columnconfigure((0, 1, 2), weight=1)
     root.grid_rowconfigure(0, weight=1)
-    frame1 = tk.Frame(root, bg='white', relief='solid', borderwidth=1)
-    frame2 = tk.Frame(root, bg='white', relief='solid', borderwidth=1)
-    frame3 = tk.Frame(root, bg='white', relief='solid', borderwidth=1)
+
+    frame1 = ctk.CTkFrame(root, corner_radius=15)
+    frame2 = ctk.CTkFrame(root, corner_radius=15)
+    frame3 = ctk.CTkScrollableFrame(root, label_text='Бумаги', corner_radius=15)
+
     frame1.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
     frame2.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
     frame3.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
 
-    if worker['profile_photo']:
-        pil_image = Image.open(f'imgs/{worker["profile_photo"]}')
-    else:
-        pil_image = Image.open(f'default_profile_pic.jpg')
-    resized_image = pil_image.resize((400, 500), Image.Resampling.LANCZOS)
-    img = ImageTk.PhotoImage(resized_image)
-    image_label = tk.Label(frame1, image=img)
-    image_label.pack()
-    image_label.image = img
-    method_lbl = tk.Label(
-        frame1,
-        text=worker['name'],
-        bg='white',
-        font=('Helvetica', 10),
-        height=1
-    )
-    method_lbl.pack(padx=5, pady=5, expand=False)
-    method_lbl = tk.Label(
-        frame1,
-        text=worker['login'] if worker['login'] else '',
-        bg='white',
-        font=('Helvetica', 10),
-        height=1
-    )
-    method_lbl.pack(padx=5, pady=3)
-    method_lbl = tk.Label(
-        frame1,
-        text=worker['post'],
-        bg='white',
-        font=('Helvetica', 10),
-        height=1
-    )
-    method_lbl.pack(padx=5, pady=5)
-    desc = scrolledtext.ScrolledText(frame2, width=40, height=33)
-    desc.grid(column=1, row=1)
-    desc.insert(tk.END, worker['description'])
-    btn = tk.Button(
+    img_path = f'imgs/{worker["profile_photo"]}' if worker['profile_photo'] else 'default_profile_pic.jpg'
+    pil_image = Image.open(img_path)
+    ctk_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(300, 400))
+
+    image_label = ctk.CTkLabel(frame1, image=ctk_image, text="")
+    image_label.pack(pady=20, expand=True)
+
+    ctk.CTkLabel(frame1, text=worker['name'], font=('Helvetica', 16, 'bold')).pack(pady=2)
+    ctk.CTkLabel(frame1, text=worker['login'] if worker['login'] else '', font=('Helvetica', 12)).pack(pady=2)
+    ctk.CTkLabel(frame1, text=worker['post'], font=('Helvetica', 12)).pack(pady=(2, 20))
+
+    desc = ctk.CTkTextbox(frame2, corner_radius=10)
+    desc.pack(padx=15, pady=15, fill='both', expand=True)
+    desc.insert("0.0", worker['description'])
+
+    btn = ctk.CTkButton(
         frame2,
         text='Изменить описание',
-        font=('Helvetica', 16),
-        command=lambda: change_description(worker['login'], worker['name'], desc.get(1.0, tk.END))
+        font=('Helvetica', 14),
+        command=lambda: change_description(worker['login'], worker['name'], desc.get("0.0", "end"))
     )
-    btn.grid(row=2, column=1)
-
-
-    DEL_BUTTON = tk.Button(frame2, text='')
-
-
-    frame3.grid_rowconfigure(1, weight=1)  # Делаем ряд с холстом растягиваемым
-    frame3.grid_columnconfigure(0, weight=1)  # Делаем колонку с холстом растягиваемой
-
-    label_title = tk.Label(frame3, text='Бумаги', font=('Arial', 14, 'bold'), bg='white')
-    label_title.grid(row=0, column=0, columnspan=2, pady=5)
-
-    canvas = tk.Canvas(frame3, bg='white')
-    scrollbar = tk.Scrollbar(frame3, orient='vertical', command=canvas.yview)
-    scrollable_frame = tk.Frame(canvas, bg='white')
-
-    def on_frame_configure(e):
-        canvas.configure(scrollregion=canvas.bbox('all'))
-
-    scrollable_frame.bind('Configure', on_frame_configure)
-
-    canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
-    canvas.configure(yscrollcommand=scrollbar.set)
-
-    canvas.grid(row=1, column=0, sticky='nsew')
-    scrollbar.grid(row=1, column=1, sticky='ns')
-
-    def on_mousewheel(event):
-        if platform.system() == 'Windows':
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
-        elif platform.system() == 'Darwin':
-            canvas.yview_scroll(int(-1 * event.delta), 'units')
-        else:
-            if event.num == 4:
-                canvas.yview_scroll(-1, 'units')
-            elif event.num == 5:
-                canvas.yview_scroll(1, 'units')
-
-    root.bind_all('MouseWheel', on_mousewheel)
-    root.bind_all('Button-4', on_mousewheel)
-    root.bind_all('Button-5', on_mousewheel)
+    btn.pack(pady=15, padx=15, fill='x')
 
     for i in worker['certificates']:
-        tk.Button(
-            scrollable_frame,
+        ctk.CTkButton(
+            frame3,
             text=f'{i}',
-            width=53,
-            height=2,
+            height=45,
+            fg_color="transparent",
+            border_width=1,
             command=lambda a=i: startfile(f'{getcwd()}\\imgs\\{a}')
         ).pack(pady=5, padx=10, fill='x')
 
@@ -203,25 +160,29 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
 
-    root = tk.Tk()
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    root = ctk.CTk()
     root.title('ne')
     root.geometry('1200x600')
-    root.resizable(False, False)
+    root.minsize(900, 500)
 
-    # login frame
-    login_frame = tk.Frame(root)
-    login_frame.pack(expand=True)
+    login_frame = ctk.CTkFrame(root, corner_radius=20)
+    login_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-    tk.Label(login_frame, text='Username:').pack(pady=5)
-    login_name = tk.Entry(login_frame)
-    login_name.pack(pady=5)
+    ctk.CTkLabel(login_frame, text='Username:', font=('Helvetica', 12)).pack(pady=(20, 5))
+    login_name = ctk.CTkEntry(login_frame, width=250)
+    login_name.pack(pady=5, padx=40)
 
-    tk.Label(login_frame, text='Password:').pack(pady=5)
-    login_pass = tk.Entry(login_frame, show='•')
+    ctk.CTkLabel(login_frame, text='Password:', font=('Helvetica', 12)).pack(pady=5)
+    login_pass = ctk.CTkEntry(login_frame, show='•', width=250)
     login_pass.pack(pady=5)
 
-    tk.Button(login_frame, text='Log in', command=lambda: login_action(), cursor='hand2').pack(pady=5)
-    tk.Button(login_frame, text='Register', command=lambda: login_action(True), cursor='hand2').pack(pady=5)
+    ctk.CTkButton(login_frame, text='Log in', width=200, command=lambda: login_action()).pack(pady=20)
+    ctk.CTkButton(login_frame, text='Register', width=200, fg_color="transparent", border_width=1,
+                  command=lambda: login_action(True)).pack(pady=(0, 20))
 
     root.protocol("WM_DELETE_WINDOW", close_app)
+    root.resizable(False, False)
     root.mainloop()
