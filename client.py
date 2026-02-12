@@ -66,8 +66,6 @@ def change_description(worker_login, worker_name, new_desc):
 
 
 def build_worker_ui(worker):
-    global tk
-
     root.grid_columnconfigure(0, weight=0)
     root.grid_columnconfigure(1, weight=0)
     root.grid_columnconfigure(2, weight=1)
@@ -122,7 +120,10 @@ def build_worker_ui(worker):
         command=lambda: change_description(worker['login'], worker['name'], desc.get(1.0, tk.END))
     )
     btn.grid(row=2, column=1)
-    import tkinter as tk
+
+
+    DEL_BUTTON = tk.Button(frame2, text='')
+
 
     frame3.grid_rowconfigure(1, weight=1)  # Делаем ряд с холстом растягиваемым
     frame3.grid_columnconfigure(0, weight=1)  # Делаем колонку с холстом растягиваемой

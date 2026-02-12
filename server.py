@@ -87,7 +87,7 @@ def user_communication(conn):
             return
 
         elif command == 'SEND_FILE':
-            pass
+            get_file(conn)
 
 
 def handle_client(conn):
