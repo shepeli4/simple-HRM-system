@@ -10,7 +10,7 @@ import platform
 
 def close_app():
     global sock
-    sock.send('EXIT;'.encode('utf-8'))
+    sock.send('EXIT;;'.encode('utf-8') + bytearray(512 - len('EXIT;;'.encode('utf-8'))))
     folder_path = getcwd() + '\\imgs'
     for item in listdir(folder_path):
         item_path = path.join(folder_path, item)
@@ -18,7 +18,7 @@ def close_app():
     root.destroy()
 
 
-def get_img():
+def get_file():
     global sock
     f_name, f_size, buff = sock.recv(512).decode('utf-8').split(';')
     f_size = int(f_size)
@@ -30,22 +30,39 @@ def get_img():
         f.write(chunk)
 
 
+def send_file(file_path):
+    global sock
+    f_name = file_path[file_path.rfind('\\'):]
+    file_size = path.getsize(file_path)
+    print(f_name)
+    # file_name;file_size(bytes);\x00\x00\x00\x00...
+    sock.send(f'{f_name};{file_size};'.encode('utf-8') + bytearray(512 - len(f'{f_name};{file_size};'.encode('utf-8'))))
+    with open(file_path, 'rb') as f:
+        chunk = f.read(4096)
+        while chunk:
+            sock.send(chunk)
+            chunk = f.read(4096)
+    print('img_sent')
+
+
 def get_profile():
     global sock
     print('get_profile')
     # "login": <login>, "password": <password>, etc.
-    worker = json.loads(sock.recv(4096).decode('utf-8'))
+    worker = sock.recv(1024).decode('utf-8')
+    worker = json.loads(worker[:worker.rfind(';')])
     print(worker)
     if worker['profile_photo']:
-        get_img()
+        get_file()
     for i in worker['certificates']:
-        get_img()
+        get_file()
 
     build_worker_ui(worker)
 
 
 def change_description(worker_login, worker_name, new_desc):
-    sock.send(f'CHANGE_DESC;{new_desc}:{worker_name};{worker_login}'.encode('utf-8'))
+    message = f'CHANGE_DESC;{new_desc}:{worker_name};{worker_login};'
+    sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
 
 
 def build_worker_ui(worker):
@@ -183,7 +200,7 @@ def login_action(register=False):
 
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.1.31', 1800))  # --- CHANGE IP ON PUBLIC ---
+    sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
 
     root = tk.Tk()
     root.title('ne')
