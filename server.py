@@ -1,14 +1,25 @@
 import socket
 import threading
 import json
-import time
 import os
 
-def send_img(conn, path):
+
+def get_file(conn):
+    f_name, f_size, buff = conn.recv(512).decode('utf-8').split(';')
+    f_size = int(f_size)
+    with open(f'{os.getcwd()}\\imgs\\{f_name}', 'wb') as f:
+        for i in range(f_size // 4096):
+            chunk = conn.recv(4096)
+            f.write(chunk)
+        chunk = conn.recv(f_size - f_size // 4096 * 4096)
+        f.write(chunk)
+
+
+def send_file(conn, path):
     f_name = path[path.rfind('\\'):]
     file_size = os.path.getsize(path)
     print(f_name)
-    # file_name;file_size(bytes);\x00\x00\x00\x00....
+    # file_name;file_size(bytes);\x00\x00\x00\x00...
     conn.send(f'{f_name};{file_size};'.encode('utf-8') + bytearray(512 - len(f'{f_name};{file_size};'.encode('utf-8'))))
     with open(path, 'rb') as f:
         chunk = f.read(4096)
@@ -16,6 +27,7 @@ def send_img(conn, path):
             conn.send(chunk)
             chunk = f.read(4096)
     print('img_sent')
+
 
 
 def start_server():
@@ -47,17 +59,18 @@ def send_profile(conn, name, login=None):
                 worker = i
                 break
     print(worker)
-    conn.send(json.dumps(worker).encode('utf-8'))
-    time.sleep(0.1)
+    # worker;\x00\x00\x00\x00...
+    conn.send(f'{json.dumps(worker)};'.encode('utf-8')+ bytearray(1024 - len(f'{json.dumps(worker)};'.encode('utf-8'))))
     if worker['profile_photo']:
-        send_img(conn, f'server_imgs\\{worker["profile_photo"]}')
+        send_file(conn, f'server_imgs\\{worker["profile_photo"]}')
     for i in worker['certificates']:
-        send_img(conn, f'server_imgs\\{i}')
+        send_file(conn, f'server_imgs\\{i}')
 
 
 def user_communication(conn):
     while True:
-        data = conn.recv(1024).decode('utf-8')
+        data = conn.recv(512).decode('utf-8')
+        data = data[:data.rfind(';')]
         command, args = data[:data.find(';')], data[data.find(';') + 1:]
         if command == 'CHANGE_DESC':
             # args = '<description>:<worker_name>;<worker_login>'
@@ -72,6 +85,9 @@ def user_communication(conn):
         elif command == 'EXIT':
             print('user left')
             return
+
+        elif command == 'SEND_FILE':
+            pass
 
 
 def handle_client(conn):
