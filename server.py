@@ -7,7 +7,8 @@ import os
 def get_file(conn):
     f_name, f_size, buff = conn.recv(512).decode('utf-8').split(';')
     f_size = int(f_size)
-    with open(f'{os.getcwd()}\\server_imgs\\{f_name}', 'wb') as f:
+    path = f'{os.getcwd()}\\server_imgs'
+    with open(f'{path}\\{len(os.listdir(path))}{f_name[f_name.rfind("."):]}', 'wb') as f:
         for i in range(f_size // 4096):
             chunk = conn.recv(4096)
             f.write(chunk)
@@ -87,13 +88,46 @@ def user_communication(conn):
             return
 
         elif command == 'CHANGE_PROFILE_PIC':
-            get_file(conn)
-            file_name, worker_name, worker_login = args[:args.rfind(':')], args[args.rfind(':') + 1:args.rfind(';')], args[args.rfind(';') + 1:]
+            file_name, worker_login, worker_name = [args[:args.rfind(':')],
+                                                    args[args.rfind(':') + 1:args.rfind(';')],
+                                                    args[args.rfind(';') + 1:]]
             if worker_login:
                 for i in range(len(workers)):
                     if workers[i]['login'] == worker_login:
-                        workers[i]['profile_photo'] = file_name
+                        path = f'{os.getcwd()}\\server_imgs\\'
+                        workers[i]['profile_photo'] = f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}'
                         get_file(conn)
+                        with open('workers.json', 'w') as f:
+                            json.dump(workers, f)
+            else:
+                for i in range(len(workers)):
+                    if workers[i]['name'] == worker_name and workers[i]['login'] == '':
+                        path = f'{os.getcwd()}\\server_imgs\\'
+                        workers[i]['profile_photo'] = f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}'
+                        get_file(conn)
+                        with open('workers.json', 'w') as f:
+                            json.dump(workers, f)
+
+        elif command == 'ADD_CERTIFICATE':
+            file_name, worker_login, worker_name = [args[:args.rfind(':')],
+                                                    args[args.rfind(':') + 1:args.rfind(';')],
+                                                    args[args.rfind(';') + 1:]]
+            if worker_login:
+                for i in range(len(workers)):
+                    if workers[i]['login'] == worker_login:
+                        path = f'{os.getcwd()}\\server_imgs\\'
+                        workers[i]['certificates'].append(f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}')
+                        get_file(conn)
+                        with open('workers.json', 'w') as f:
+                            json.dump(workers, f)
+            else:
+                for i in range(len(workers)):
+                    if workers[i]['name'] == worker_name and workers[i]['login'] == '':
+                        path = f'{os.getcwd()}\\server_imgs\\'
+                        workers[i]['certificates'].append(f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}')
+                        get_file(conn)
+                        with open('workers.json', 'w') as f:
+                            json.dump(workers, f)
 
 
 def handle_client(conn):

@@ -3,9 +3,9 @@ import socket
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import scrolledtext, filedialog, messagebox
-from os import getcwd, listdir, path, remove, startfile
+from os import getcwd, listdir, path, remove, startfile, makedirs
 from PIL import Image, ImageTk
-import platform
+import shutil
 
 
 def close_app():
@@ -33,9 +33,9 @@ def get_file():
 def send_file(file_path):
     global sock
 
-    f_name = file_path[file_path.rfind('\\'):]
+    f_name = file_path[file_path.rfind('/'):]
     file_size = path.getsize(file_path)
-    print(f_name)
+    print(f_name, file_path)
     # file_name;file_size(bytes);\x00\x00\x00\x00...
     sock.send(f'{f_name};{file_size};'.encode('utf-8') + bytearray(512 - len(f'{f_name};{file_size};'.encode('utf-8'))))
     with open(file_path, 'rb') as f:
@@ -66,18 +66,41 @@ def change_description(worker_login, worker_name, new_desc):
     sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
 
 
-def change_profile_pic(worker_login, worker_name):
+def change_profile_pic(worker, label_widget):
     global sock
     file_path = filedialog.askopenfilename(filetypes=(("Jpg Files", "*.jpg"),
                                                       ("Png Files", "*.png"),
                                                       ('Jpeg Files', '*.jpeg'),
                                                       ("All Files", "*.*")))
-    f_name = file_path[file_path.rfind('\\'):]
-    message = f'CHANGE_PROFILE_PIC;{f_name}:{worker_login};{worker_name};'
-    sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
-    send_file(file_path)
-    # ПРОВЕРИТЬ РАБОТОСПОСОБНОСТЬ ПУТЁМ ДОБАВЛЕНИЯ КНОПКИ
+    if file_path:
+        ext = path.splitext(file_path)[1]
+        new_name = f"pfp_{worker['login']}{ext}"
+        dest = path.join(getcwd(), 'imgs', new_name)
+        if not path.exists('imgs'): makedirs('imgs')
+        shutil.copy(file_path, dest)
+        new_img = Image.open(dest)
+        ctk_img = ctk.CTkImage(light_image=new_img, dark_image=new_img, size=(300, 400))
+        label_widget.configure(image=ctk_img)
+        worker['profile_photo'] = new_name
+        message = f'CHANGE_PROFILE_PIC;{file_path}:{worker["login"]};{worker["name"]};'
+        sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
+        send_file(file_path)
 
+
+def add_certificate(worker, frame):
+    file_path = filedialog.askopenfilename(filetypes=[("Documents", "*.jpg *.jpeg *.png")])
+    if file_path:
+        f_name = path.basename(file_path)
+        dest = path.join(getcwd(), 'imgs', f_name)
+        if not path.exists('imgs'): makedirs('imgs')
+        shutil.copy(file_path, dest)
+        worker['certificates'].append(f_name)
+        ctk.CTkButton(frame, text=str(f_name), height=45, fg_color="transparent", border_width=1,
+                      command=lambda a=f_name: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10,
+                                                                                               fill='x')
+        message = f'ADD_CERTIFICATE;{file_path}:{worker["login"]};{worker["name"]};'
+        sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
+        send_file(file_path)
 
 def build_worker_ui(worker):
     for widget in root.winfo_children():
@@ -94,38 +117,38 @@ def build_worker_ui(worker):
     frame2.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
     frame3.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
 
-    img_path = f'imgs/{worker["profile_photo"]}' if worker['profile_photo'] else 'default_profile_pic.jpg'
-    pil_image = Image.open(img_path)
-    ctk_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(300, 400))
+    img_path = f'imgs/{worker["profile_photo"]}' if worker['profile_photo'] and path.exists(
+        f'imgs/{worker["profile_photo"]}') else None
+    if img_path:
+        pil_image = Image.open(img_path)
+    else:
+        pil_image = Image.new('RGB', (300, 400), color='gray')
 
+    ctk_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(300, 400))
     image_label = ctk.CTkLabel(frame1, image=ctk_image, text="")
-    image_label.pack(pady=20, expand=True)
+    image_label.pack(pady=(20, 10), expand=True)
 
     ctk.CTkLabel(frame1, text=worker['name'], font=('Helvetica', 16, 'bold')).pack(pady=2)
-    ctk.CTkLabel(frame1, text=worker['login'] if worker['login'] else '', font=('Helvetica', 12)).pack(pady=2)
+    ctk.CTkLabel(frame1, text=worker['login'] or '', font=('Helvetica', 12)).pack(pady=2)
     ctk.CTkLabel(frame1, text=worker['post'], font=('Helvetica', 12)).pack(pady=(2, 20))
 
     desc = ctk.CTkTextbox(frame2, corner_radius=10)
     desc.pack(padx=15, pady=15, fill='both', expand=True)
     desc.insert("0.0", worker['description'])
 
-    btn = ctk.CTkButton(
-        frame2,
-        text='Изменить описание',
-        font=('Helvetica', 14),
-        command=lambda: change_description(worker['login'], worker['name'], desc.get("0.0", "end"))
-    )
-    btn.pack(pady=15, padx=15, fill='x')
+    ctk.CTkButton(frame2, text='Изменить описание', font=('Helvetica', 14),
+                  command=lambda: change_description(worker['login'], worker['name'], desc.get("0.0", "end"))).pack(
+        pady=15, padx=15, fill='x')
+
+    ctk.CTkButton(frame1, text='Изменить фото профиля', font=('Helvetica', 14),
+                  command=lambda: change_profile_pic(worker, image_label)).pack(pady=(0, 13), padx=20, fill='x')
+
+    ctk.CTkButton(frame3, text='+ Добавить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
+                  command=lambda: add_certificate(worker, frame3)).pack(pady=10, padx=10, fill='x')
 
     for i in worker['certificates']:
-        ctk.CTkButton(
-            frame3,
-            text=f'{i}',
-            height=45,
-            fg_color="transparent",
-            border_width=1,
-            command=lambda a=i: startfile(f'{getcwd()}\\imgs\\{a}')
-        ).pack(pady=5, padx=10, fill='x')
+        ctk.CTkButton(frame3, text=str(i), height=45, fg_color="transparent", border_width=1,
+                      command=lambda a=i: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10, fill='x')
 
 
 def login_action(register=False):
