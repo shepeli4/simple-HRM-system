@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import tkinter as tk
 import customtkinter as ctk
@@ -47,7 +48,7 @@ def send_file(file_path):
 
 
 def get_profile():
-    global sock
+    global sock, worker
     print('get_profile')
     # "login": <login>, "password": <password>, etc.
     worker = sock.recv(1024).decode('utf-8')
@@ -58,7 +59,7 @@ def get_profile():
     for i in worker['certificates']:
         get_file()
 
-    build_worker_ui(worker)
+    build_worker_ui()
 
 
 def change_description(worker_login, worker_name, new_desc):
@@ -66,12 +67,9 @@ def change_description(worker_login, worker_name, new_desc):
     sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
 
 
-def change_profile_pic(worker, label_widget):
-    global sock
-    file_path = filedialog.askopenfilename(filetypes=(("Jpg Files", "*.jpg"),
-                                                      ("Png Files", "*.png"),
-                                                      ('Jpeg Files', '*.jpeg'),
-                                                      ("All Files", "*.*")))
+def change_profile_pic(label_widget):
+    global sock, worker
+    file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png")])
     if file_path:
         ext = path.splitext(file_path)[1]
         new_name = f"pfp_{worker['login']}{ext}"
@@ -87,22 +85,82 @@ def change_profile_pic(worker, label_widget):
         send_file(file_path)
 
 
-def add_certificate(worker, frame):
-    file_path = filedialog.askopenfilename(filetypes=[("Documents", "*.jpg *.jpeg *.png")])
+def add_certificate(frame):
+    global sock, worker
+    file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png")])
     if file_path:
-        f_name = path.basename(file_path)
-        dest = path.join(getcwd(), 'imgs', f_name)
-        if not path.exists('imgs'): makedirs('imgs')
-        shutil.copy(file_path, dest)
-        worker['certificates'].append(f_name)
-        ctk.CTkButton(frame, text=str(f_name), height=45, fg_color="transparent", border_width=1,
-                      command=lambda a=f_name: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10,
-                                                                                               fill='x')
         message = f'ADD_CERTIFICATE;{file_path}:{worker["login"]};{worker["name"]};'
         sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
+        data = sock.recv(512).decode('utf-8')
+        worker = json.loads(data[:data.rfind(';')])
+        worker['certificates'].append(worker['certificates'][-1])
+        ctk.CTkButton(frame, text=str(worker['certificates'][-1]), height=45, fg_color="transparent", border_width=1,
+                      command=lambda a=worker['certificates'][-1]: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10, fill='x')
+        dest = path.join(getcwd(), 'imgs', worker['certificates'][-1])
+        shutil.copy(file_path, dest)
         send_file(file_path)
 
-def build_worker_ui(worker):
+
+def delete_certificate(root):
+    global sock, worker, file
+    def on_press(file):
+        global worker
+        print(file)
+        if not file: messagebox.showerror('Выберите сертификат для удаления')
+        message = f'DELETE_CERTIFICATE;{file}:{worker["login"]};{worker["name"]};'.encode('utf-8')
+        sock.send(message + bytearray(512 - len(message)))
+        del worker['certificates'][worker['certificates'].index(file)]
+        mini_root.destroy()
+        # УДАЛИТЬ ИЗ ВИЗУАЛЬНОГО СПИСКА БУМАГ
+
+    mini_root = ctk.CTkToplevel()
+    mini_root.title("Certificates")
+    mini_root.geometry("800x400")
+    mini_root.resizable(False, False)
+    mini_root.attributes("-topmost", True)
+
+    file = ''
+
+    def show_preview(file_path):
+        global file
+        file = file_path
+        try:
+            full_path = path.join(getcwd(), 'imgs', file_path)
+            img = Image.open(full_path)
+            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(350, 350))
+            preview_label.configure(image=ctk_img, text="")
+        except Exception:
+            preview_label.configure(image=None, text="Preview error")
+
+    left_frame = ctk.CTkFrame(mini_root, width=400, fg_color="transparent")
+    left_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
+    right_frame = ctk.CTkFrame(mini_root, width=380)
+    right_frame.pack(side="right", fill="both", padx=5, pady=5)
+    preview_label = ctk.CTkLabel(right_frame, text="Select a file", width=350, height=350)
+    preview_label.pack(expand=True)
+
+    scrollable_frame = ctk.CTkScrollableFrame(left_frame)
+    scrollable_frame.pack(fill="both", expand=True)
+
+    for certificate_path in worker['certificates']:
+        file_name = path.basename(certificate_path)
+        btn = ctk.CTkButton(
+            scrollable_frame,
+            text=file_name,
+            height=45,
+            fg_color="transparent",
+            border_width=1,
+            command=lambda f=file_name: show_preview(f)
+        )
+        btn2 = ctk.CTkButton(right_frame, text='Удалить выбранную бумагу', font=('Helvetica', 12, 'bold'),
+                             fg_color="#2b719e", command=lambda: on_press(file))
+        btn2.pack(pady=6, padx=10, fill='x')
+        btn.pack(pady=5, padx=10, fill='x')
+
+
+def build_worker_ui():
+    global sock, worker
     for widget in root.winfo_children():
         widget.destroy()
 
@@ -118,7 +176,7 @@ def build_worker_ui(worker):
     frame3.grid(row=0, column=2, sticky='nsew', padx=5, pady=5)
 
     img_path = f'imgs/{worker["profile_photo"]}' if worker['profile_photo'] and path.exists(
-        f'imgs/{worker["profile_photo"]}') else None
+        f'imgs/{worker["profile_photo"]}') else os.getcwd() + '\\default_profile_pic.jpg'
     if img_path:
         pil_image = Image.open(img_path)
     else:
@@ -141,10 +199,12 @@ def build_worker_ui(worker):
         pady=15, padx=15, fill='x')
 
     ctk.CTkButton(frame1, text='Изменить фото профиля', font=('Helvetica', 14),
-                  command=lambda: change_profile_pic(worker, image_label)).pack(pady=(0, 13), padx=20, fill='x')
+                  command=lambda: change_profile_pic(image_label)).pack(pady=(0, 13), padx=20, fill='x')
 
     ctk.CTkButton(frame3, text='+ Добавить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
-                  command=lambda: add_certificate(worker, frame3)).pack(pady=10, padx=10, fill='x')
+                  command=lambda: add_certificate(frame3)).pack(pady=10, padx=10, fill='x')
+    ctk.CTkButton(frame3, text='- Удалить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
+                  command=lambda: delete_certificate(root)).pack(pady=10, padx=10, fill='x')
 
     for i in worker['certificates']:
         ctk.CTkButton(frame3, text=str(i), height=45, fg_color="transparent", border_width=1,

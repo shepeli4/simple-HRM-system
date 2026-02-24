@@ -117,17 +117,38 @@ def user_communication(conn):
                     if workers[i]['login'] == worker_login:
                         path = f'{os.getcwd()}\\server_imgs\\'
                         workers[i]['certificates'].append(f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}')
-                        get_file(conn)
-                        with open('workers.json', 'w') as f:
-                            json.dump(workers, f)
+                        message = f'{json.dumps(workers[i])};'.encode('utf-8')
+                        conn.send(message + bytearray(512 - len(message)))
             else:
                 for i in range(len(workers)):
                     if workers[i]['name'] == worker_name and workers[i]['login'] == '':
                         path = f'{os.getcwd()}\\server_imgs\\'
                         workers[i]['certificates'].append(f'{len(os.listdir(path))}{file_name[file_name.rfind("."):]}')
-                        get_file(conn)
-                        with open('workers.json', 'w') as f:
-                            json.dump(workers, f)
+            get_file(conn)
+            with open('workers.json', 'w') as f:
+                json.dump(workers, f)
+
+        elif command == 'DELETE_CERTIFICATE':
+            file_name, worker_login, worker_name = [args[:args.rfind(':')],
+                                                    args[args.rfind(':') + 1:args.rfind(';')],
+                                                    args[args.rfind(';') + 1:]]
+            if worker_login:
+                for i in range(len(workers)):
+                    if workers[i]['login'] == worker_login:
+                        with open(f'{os.getcwd()}\\server_imgs\\{file_name}', 'wb') as f:
+                            f.write(bytearray(1))
+                        del workers[i]['certificates'][workers[i]['certificates'].index(file_name)]
+                        print(workers[i]['certificates'])
+            else:
+                for i in range(len(workers)):
+                    if workers[i]['name'] == worker_name and workers[i]['login'] == '':
+                        with open(f'{os.getcwd()}\\server_imgs\\{file_name}', 'wb') as f:
+                            f.write(bytearray(1))
+                        del workers[i]['certificates'][workers[i]['certificates'].index(file_name)]
+                        print(workers[i]['certificates'])
+            with open('workers.json', 'w') as f:
+                json.dump(workers, f)
+
 
 
 def handle_client(conn):
