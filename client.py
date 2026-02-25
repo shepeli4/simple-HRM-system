@@ -93,7 +93,6 @@ def add_certificate(frame):
         sock.send(message.encode('utf-8') + bytearray(512 - len(message.encode('utf-8'))))
         data = sock.recv(512).decode('utf-8')
         worker = json.loads(data[:data.rfind(';')])
-        worker['certificates'].append(worker['certificates'][-1])
         ctk.CTkButton(frame, text=str(worker['certificates'][-1]), height=45, fg_color="transparent", border_width=1,
                       command=lambda a=worker['certificates'][-1]: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10, fill='x')
         dest = path.join(getcwd(), 'imgs', worker['certificates'][-1])
@@ -101,17 +100,26 @@ def add_certificate(frame):
         send_file(file_path)
 
 
-def delete_certificate(root):
-    global sock, worker, file
-    def on_press(file):
+def delete_certificate(frame3):
+    global sock, worker
+    def on_press():
         global worker
+        nonlocal file, frame3
         print(file)
         if not file: messagebox.showerror('Выберите сертификат для удаления')
         message = f'DELETE_CERTIFICATE;{file}:{worker["login"]};{worker["name"]};'.encode('utf-8')
         sock.send(message + bytearray(512 - len(message)))
         del worker['certificates'][worker['certificates'].index(file)]
         mini_root.destroy()
-        # УДАЛИТЬ ИЗ ВИЗУАЛЬНОГО СПИСКА БУМАГ
+        for i in frame3.winfo_children():
+            i.destroy()
+        ctk.CTkButton(frame3, text='+ Добавить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
+                      command=lambda: add_certificate(frame3)).pack(pady=10, padx=10, fill='x')
+        ctk.CTkButton(frame3, text='- Удалить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
+                      command=lambda: delete_certificate(frame3)).pack(pady=10, padx=10, fill='x')
+        for i in worker['certificates']:
+            ctk.CTkButton(frame3, text=str(i), height=45, fg_color="transparent", border_width=1,
+                          command=lambda a=i: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10, fill='x')
 
     mini_root = ctk.CTkToplevel()
     mini_root.title("Certificates")
@@ -122,7 +130,7 @@ def delete_certificate(root):
     file = ''
 
     def show_preview(file_path):
-        global file
+        nonlocal file
         file = file_path
         try:
             full_path = path.join(getcwd(), 'imgs', file_path)
@@ -154,7 +162,7 @@ def delete_certificate(root):
             command=lambda f=file_name: show_preview(f)
         )
         btn2 = ctk.CTkButton(right_frame, text='Удалить выбранную бумагу', font=('Helvetica', 12, 'bold'),
-                             fg_color="#2b719e", command=lambda: on_press(file))
+                             fg_color="#2b719e", command=lambda: on_press())
         btn2.pack(pady=6, padx=10, fill='x')
         btn.pack(pady=5, padx=10, fill='x')
 
@@ -204,7 +212,7 @@ def build_worker_ui():
     ctk.CTkButton(frame3, text='+ Добавить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
                   command=lambda: add_certificate(frame3)).pack(pady=10, padx=10, fill='x')
     ctk.CTkButton(frame3, text='- Удалить бумагу', font=('Helvetica', 12, 'bold'), fg_color="#2b719e",
-                  command=lambda: delete_certificate(root)).pack(pady=10, padx=10, fill='x')
+                  command=lambda: delete_certificate(frame3)).pack(pady=10, padx=10, fill='x')
 
     for i in worker['certificates']:
         ctk.CTkButton(frame3, text=str(i), height=45, fg_color="transparent", border_width=1,
@@ -240,8 +248,11 @@ def login_action(register=False):
         messagebox.showerror('FAIL', data[data.find(';') + 1:])
 
 if __name__ == '__main__':
+    # "login": <login>, "password": <password>, etc.
+    worker = {}
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
+    sock.connect(('192.168.1.31', 1800))  # --- CHANGE IP ON PUBLIC ---
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
