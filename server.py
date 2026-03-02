@@ -3,6 +3,8 @@ import threading
 import json
 import os
 
+from pyexpat.errors import messages
+
 
 def get_file(conn):
     f_name, f_size, buff = conn.recv(512).decode('utf-8').split(';')
@@ -156,32 +158,37 @@ def handle_client(conn):
     while not_login_in:
         data = conn.recv(1024).decode('utf-8')
         if data[data.rfind(';') + 1:] == 'login':
-            name = data[:data.find(':')]
+            login = data[:data.find(':')]
             password = data[data.find(':') + 1:data.find(';')]
             for i in HRs:
-                if i['login'] == name and i['password'] == password:
+                if i['login'] == login and i['password'] == password:
                     conn.send('SUCCESS;HR'.encode('utf-8'))
                     not_login_in = False
+                    send_profile(conn, i['login'], login)
+                    message = (json.dumps(workers) + ';').encode('utf-8')
+                    conn.send(message + bytearray(2048 - len(message)))
+                    message = (json.dumps(logins_without_account) + ';').encode('utf-8')
+                    conn.send(message + bytearray(1024 - len(message)))
                     break
             else:
                 for i in workers:
-                    if i['login'] == name and i['password'] == password:
+                    if i['login'] == login and i['password'] == password:
                         conn.send('SUCCESS;worker'.encode('utf-8'))
                         not_login_in = False
-                        send_profile(conn, i['name'], name)
+                        send_profile(conn, i['name'], login)
                         break
                 else:
-                    conn.send('FAIL;Wrong name or password'.encode('utf-8'))
+                    conn.send('FAIL;Wrong login or password'.encode('utf-8'))
 
         elif data[data.rfind(';') + 1:] == 'registration': # idk, need to more braining
-            name = data[:data.find(':')]
+            login = data[:data.find(':')]
             password = data[data.find(':') + 1:data.find(';')]
-            if name in list(map(lambda x: x['login'], HRs)) or name in list(map(lambda x: x['login'], logins_without_account)):
+            if login in list(map(lambda x: x['login'], HRs)) or login in list(map(lambda x: x['login'], logins_without_account)):
                 conn.send('FAIL;User with this login already exist'.encode('utf-8'))
                 continue
             else:
                 conn.send('SUCCESS;dummy'.encode('utf-8'))
-                logins_without_account.append({'login': name, 'password': password})
+                logins_without_account.append({'login': login, 'password': password})
                 with open('logins_without_account.json', 'w', encoding='utf-8') as f:
                     json.dump(logins_without_account, f)
 
@@ -211,12 +218,12 @@ if __name__ == '__main__':
             json.dump([{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}], f)
     print(HRs, workers)
 
-    # format: [{'login': <login>, 'password': <password>}]
+    # format: [<login>: <password>]
     logins_without_account = []
     try:
         with open('logins_without_account.json', encoding='utf-8') as f:
             logins_without_account = json.load(f)
     except FileNotFoundError:
         with open('logins_without_account.json', 'w', encoding='utf-8') as f:
-            json.dump([], f)
+            json.dump({}, f)
     start_server()

@@ -1,9 +1,8 @@
 import json
 import os
 import socket
-import tkinter as tk
 import customtkinter as ctk
-from tkinter import scrolledtext, filedialog, messagebox
+from tkinter import filedialog, messagebox
 from os import getcwd, listdir, path, remove, startfile, makedirs
 from PIL import Image, ImageTk
 import shutil
@@ -106,7 +105,7 @@ def delete_certificate(frame3):
         global worker
         nonlocal file, frame3
         print(file)
-        if not file: messagebox.showerror('Выберите сертификат для удаления')
+        if not file: messagebox.showerror('ERROR', 'Выберите сертификат для удаления')
         message = f'DELETE_CERTIFICATE;{file}:{worker["login"]};{worker["name"]};'.encode('utf-8')
         sock.send(message + bytearray(512 - len(message)))
         del worker['certificates'][worker['certificates'].index(file)]
@@ -219,6 +218,36 @@ def build_worker_ui():
                       command=lambda a=i: startfile(path.join(getcwd(), 'imgs', a))).pack(pady=5, padx=10, fill='x')
 
 
+def hr_window():
+    global sock
+    workers = sock.recv(2048).decode('utf-8')
+    workers = json.loads(workers[:workers.rfind(';')])
+
+    workers_without_login = sock.recv(1024).decode('utf-8')
+    workers_without_login = json.loads(workers_without_login[:workers_without_login.rfind(';')])
+    print(workers_without_login)
+
+    hr_root = ctk.CTkToplevel()
+    hr_root.title("hr_window")
+    hr_root.geometry("600x400")
+    hr_root.resizable(False, False)
+    hr_root.attributes("-topmost", True)
+    hr_root.grid_columnconfigure((0, 1), weight=1)
+    hr_root.grid_rowconfigure(0, weight=1)
+
+    left_frame = ctk.CTkFrame(hr_root)
+    left_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
+
+    right_frame = ctk.CTkFrame(hr_root)
+    right_frame.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
+
+    left_combobox = ctk.CTkComboBox(left_frame, values=[i['login'] for i in workers])
+    left_combobox.pack(anchor='nw', padx=5, pady=5)
+
+    right_combobox = ctk.CTkComboBox(right_frame, values=list(workers_without_login.keys()))
+    right_combobox.pack(anchor='nw', padx=5, pady=5)
+
+
 def login_action(register=False):
     global sock
     name = login_name.get()
@@ -238,7 +267,8 @@ def login_action(register=False):
         print(data[data.find(';') + 1:])
 
         if data[data.find(';') + 1:] == 'HR':
-            pass
+            get_profile()
+            hr_window()
         elif data[data.find(';') + 1:] == 'worker':
             get_profile()
         else:
