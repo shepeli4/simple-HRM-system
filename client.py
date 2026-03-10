@@ -59,6 +59,7 @@ def get_profile():
         get_file()
 
     build_worker_ui()
+    print('building')
 
 
 def change_description(worker_login, worker_name, new_desc):
@@ -168,8 +169,8 @@ def delete_certificate(frame3):
 
 def build_worker_ui():
     global sock, worker
-    for widget in root.winfo_children():
-        widget.destroy()
+    # for widget in root.winfo_children():
+        # widget.destroy()
 
     root.grid_columnconfigure((0, 1, 2), weight=1)
     root.grid_rowconfigure(0, weight=1)
@@ -220,6 +221,29 @@ def build_worker_ui():
 
 def hr_window():
     global sock
+
+    def get_profile_in_func():
+        nonlocal workers, left_combobox
+        global worker
+
+        for i in range(len(workers)):
+            print(workers[i]['login'], left_combobox.get())
+            if workers[i]['login'] == left_combobox.get():
+                worker = workers[i]
+                login_frame.pack_forget()
+                data = f'GET_PROFILE;{worker["login"]};{worker["name"]};'.encode('utf-8')
+                sock.send(data + bytearray(512 - len(data)))
+                get_profile()
+                break
+        else:
+            messagebox.showerror('ERROR', 'Такого пользователя не существет.')
+
+    def delete_profile():
+        nonlocal workers, left_combobox
+        global worker
+        messagebox.askokcancel('Are u sure?', f'Вы уверены что хотите удалить пользователя {left_combobox.get()}')
+        # ПРОДОЛЖИТЬ РАБОТУ НАД УДАЛЕНИЕМ
+
     workers = sock.recv(2048).decode('utf-8')
     workers = json.loads(workers[:workers.rfind(';')])
 
@@ -242,10 +266,23 @@ def hr_window():
     right_frame.grid(row=0, column=1, sticky='nsew', padx=5, pady=5)
 
     left_combobox = ctk.CTkComboBox(left_frame, values=[i['login'] for i in workers])
-    left_combobox.pack(anchor='nw', padx=5, pady=5)
+    left_combobox.pack(anchor='nw', padx=5, pady=5, fill='x')
 
-    right_combobox = ctk.CTkComboBox(right_frame, values=list(workers_without_login.keys()))
-    right_combobox.pack(anchor='nw', padx=5, pady=5)
+    ctk.CTkButton(left_frame, text='Открыть профиль', font=('Helvetica', 14), command=get_profile_in_func).pack(pady=5, padx=5, fill='x')
+
+    ctk.CTkButton(left_frame, text='Удалить профиль', fg_color='#a6252e', hover_color='#890023',
+                  font=('Helvetica', 14), command=delete_profile).pack(anchor='sw', pady=5, padx=5, fill='x', side='bottom')
+
+    right_combobox = ctk.CTkComboBox(right_frame, values=list(workers_without_login))
+    right_combobox.pack(anchor='nw', padx=5, pady=5, fill='x')
+
+    name_entry = ctk.CTkEntry(right_frame, placeholder_text='Имя и Фамилия')
+    name_entry.pack(pady=5, padx=5, fill='x')
+
+    post_entry = ctk.CTkEntry(right_frame, placeholder_text='Должность')
+    post_entry.pack(pady=5, padx=5, fill='x')
+
+    ctk.CTkButton(right_frame, text='Добавить аккаунт').pack(pady=5, padx=5, fill='x', side='bottom')
 
 
 def login_action(register=False):
@@ -282,7 +319,7 @@ if __name__ == '__main__':
     worker = {}
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('192.168.1.31', 1800))  # --- CHANGE IP ON PUBLIC ---
+    sock.connect(('192.168.1.188', 1800))  # --- CHANGE IP ON PUBLIC ---
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")

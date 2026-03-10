@@ -3,8 +3,6 @@ import threading
 import json
 import os
 
-from pyexpat.errors import messages
-
 
 def get_file(conn):
     f_name, f_size, buff = conn.recv(512).decode('utf-8').split(';')
@@ -151,6 +149,19 @@ def user_communication(conn):
             with open('workers.json', 'w') as f:
                 json.dump(workers, f)
 
+        elif command == 'GET_PROFILE':
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';'):]
+            send_profile(conn, worker_name, worker_login)
+
+        elif command == 'DELETE_PROFILE':
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';'):]
+            for i in range(len(workers)):
+                if worker_login == workers[i]['login'] and worker_name == workers[i]['name']:
+                    del workers[i]
+                    print(workers)
+                    with open('workers.json', 'w') as f:
+                        json.dump(workers, f)
+                    break
 
 
 def handle_client(conn):
@@ -183,12 +194,12 @@ def handle_client(conn):
         elif data[data.rfind(';') + 1:] == 'registration': # idk, need to more braining
             login = data[:data.find(':')]
             password = data[data.find(':') + 1:data.find(';')]
-            if login in list(map(lambda x: x['login'], HRs)) or login in list(map(lambda x: x['login'], logins_without_account)):
+            if login in list(map(lambda x: x['login'], HRs)) or login in list(logins_without_account.keys()):
                 conn.send('FAIL;User with this login already exist'.encode('utf-8'))
                 continue
             else:
                 conn.send('SUCCESS;dummy'.encode('utf-8'))
-                logins_without_account.append({'login': login, 'password': password})
+                logins_without_account[login] =  password
                 with open('logins_without_account.json', 'w', encoding='utf-8') as f:
                     json.dump(logins_without_account, f)
 
@@ -218,8 +229,8 @@ if __name__ == '__main__':
             json.dump([{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}], f)
     print(HRs, workers)
 
-    # format: [<login>: <password>]
-    logins_without_account = []
+    # format: {<login>: <password>}
+    logins_without_account = {}
     try:
         with open('logins_without_account.json', encoding='utf-8') as f:
             logins_without_account = json.load(f)
