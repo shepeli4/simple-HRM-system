@@ -241,8 +241,41 @@ def hr_window():
     def delete_profile():
         nonlocal workers, left_combobox
         global worker
-        messagebox.askokcancel('Are u sure?', f'Вы уверены что хотите удалить пользователя {left_combobox.get()}')
-        # ПРОДОЛЖИТЬ РАБОТУ НАД УДАЛЕНИЕМ
+        if worker['login'] == left_combobox.get():
+            messagebox.showerror('ERROR', 'Вы не можете удалить уже открытый профиль.')
+            return
+        if messagebox.askokcancel('Are u sure?', f'Вы уверены что хотите удалить пользователя {left_combobox.get()}'):
+            for i in range(len(workers)):
+                if workers[i]['login'] == left_combobox.get():
+                    data = f'DELETE_PROFILE;{workers[i]["login"]};{workers[i]["name"]};'.encode('utf-8')
+                    sock.send(data + bytearray(512 - len(data)))
+                    del workers[i]
+                    left_combobox.configure(values=[i['login'] for i in workers])
+                    left_combobox.set(workers[0]['login'])
+                    break
+
+    def add_account():
+        nonlocal workers, right_combobox, workers_without_login, name_entry, post_entry
+        global worker
+        if not name_entry.get() or not post_entry.get():
+            messagebox.showerror('FAIL', 'поля с именем и должностью не должны бать пусты')
+            return
+        for i in workers_without_login:
+            if i == right_combobox.get():
+                data = f'ADD_ACCOUNT;{right_combobox.get()}:{name_entry.get()}:{post_entry.get()};'.encode('utf-8')
+                sock.send(data + bytearray(512 - len(data)))
+                workers.append(
+                    {'login': i, 'password': workers_without_login[i], 'post': post_entry.get(),
+                     'profile_photo': '', 'certificates': [], 'name': name_entry.get(), 'description': ''})
+                del workers_without_login[i]
+                print(workers, workers_without_login, sep='\n')
+                right_combobox.configure(values=workers_without_login.keys())
+                right_combobox.set('')
+                left_combobox.configure(values=[j['login'] for j in workers])
+                left_combobox.set(workers[0]['login'])
+                break
+        else:
+            messagebox.showerror('ERROR', 'Такого аккаунта не существует.')
 
     workers = sock.recv(2048).decode('utf-8')
     workers = json.loads(workers[:workers.rfind(';')])
@@ -282,7 +315,7 @@ def hr_window():
     post_entry = ctk.CTkEntry(right_frame, placeholder_text='Должность')
     post_entry.pack(pady=5, padx=5, fill='x')
 
-    ctk.CTkButton(right_frame, text='Добавить аккаунт').pack(pady=5, padx=5, fill='x', side='bottom')
+    ctk.CTkButton(right_frame, text='Добавить аккаунт', command=add_account).pack(pady=5, padx=5, fill='x', side='bottom')
 
 
 def login_action(register=False):

@@ -150,19 +150,30 @@ def user_communication(conn):
                 json.dump(workers, f)
 
         elif command == 'GET_PROFILE':
-            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';'):]
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';') + 1:]
             send_profile(conn, worker_name, worker_login)
 
         elif command == 'DELETE_PROFILE':
-            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';'):]
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';') + 1:]
             for i in range(len(workers)):
                 if worker_login == workers[i]['login'] and worker_name == workers[i]['name']:
                     del workers[i]
-                    print(workers)
-                    with open('workers.json', 'w') as f:
+                    with open('workers.json', 'w', encoding='utf-8') as f:
                         json.dump(workers, f)
                     break
 
+        elif command == 'ADD_ACCOUNT':
+            worker_login, worker_name, worker_post = [args[:args.find(':')],
+                                                      args[args.find(':') + 1: args.rfind(':')],
+                                                      args[args.rfind(':') + 1:]]
+            workers.append({'login': worker_login, 'password': logins_without_account[worker_login], 'post': worker_post,
+                            'profile_photo': '', 'certificates': [], 'name': worker_name, 'description': ''})
+            del logins_without_account[worker_login]
+            with open('workers.json', 'w', encoding='utf-8') as f:
+                json.dump(workers, f)
+            with open('logins_without_account.json', 'w', encoding='utf-8') as f:
+                json.dump(logins_without_account, f)
+            print(workers, logins_without_account, sep='\n')
 
 def handle_client(conn):
     not_login_in = True
@@ -225,7 +236,7 @@ if __name__ == '__main__':
         with open('workers.json', encoding='utf-8') as f:
             workers = json.load(f)
     except FileNotFoundError:
-        with open('workers.json', encoding='utf-8') as f:
+        with open('workers.json', 'w', encoding='utf-8') as f:
             json.dump([{'login': 'shepeli18', 'password': '9'}, {'login': 'V3nalita', 'password': '9'}], f)
     print(HRs, workers)
 
