@@ -175,6 +175,38 @@ def user_communication(conn):
                 json.dump(logins_without_account, f)
             print(workers, logins_without_account, sep='\n')
 
+        elif command == 'ADD_HR':
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';') + 1:]
+            for i in HRs:
+                if worker_login == i['login']:
+                    message = f'ERROR;Этот пользователь уже находится на должности HR;'.encode('utf-8')
+                    conn.send(message + bytearray(256 - len(message)))
+                    break
+            else:
+                for i in range(len(workers)):
+                    print(worker_login, workers[i]['login'])
+                    if worker_login == workers[i]['login'] and worker_name == workers[i]['name']:
+                        HRs.append({'login': worker_login, 'password': workers[i]['password']})
+                        message = f'SUCCESS;'.encode('utf-8')
+                        conn.send(message + bytearray(256 - len(message)))
+                        with open('HRs.json', 'w') as f:
+                            json.dump(HRs, f)
+                        break
+
+        elif command == 'DELETE_HR':
+            worker_login, worker_name = args[:args.rfind(';')], args[args.rfind(';') + 1:]
+            for i in range(len(HRs)):
+                if worker_login == HRs[i]['login']:
+                    del HRs[i]
+                    message = f'SUCCESS;'.encode('utf-8')
+                    conn.send(message + bytearray(256 - len(message)))
+                    with open('HRs.json', 'w') as f:
+                        json.dump(HRs, f)
+                    break
+            else:
+                message = f'ERROR;Этот пользователь не находится на должности HR;'.encode('utf-8')
+                conn.send(message + bytearray(256 - len(message)))
+
 def handle_client(conn):
     not_login_in = True
     while not_login_in:

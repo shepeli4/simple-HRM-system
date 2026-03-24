@@ -277,6 +277,37 @@ def hr_window():
         else:
             messagebox.showerror('ERROR', 'Такого аккаунта не существует.')
 
+    def add_hr():
+        nonlocal workers, left_combobox
+        if messagebox.askokcancel('Are u sure?', f'Вы уверены что хотите повысить пользователя {left_combobox.get()} до HR?'):
+            for i in workers:
+                if i['login'] == left_combobox.get():
+                    data = f'ADD_HR;{i["login"]};{i["name"]};'.encode('utf-8')
+                    sock.send(data + bytearray(512 - len(data)))
+                    data = sock.recv(256).decode('utf-8')
+                    data = data[:data.rfind(';')]
+                    if data != 'SUCCESS':
+                        messagebox.showerror('FAIL', data[data.find(';') + 1:])
+                    break
+            else:
+                messagebox.showerror('FAIL', 'Такого аккаунта не существует')
+
+    def delete_hr():
+        nonlocal workers, left_combobox
+        if messagebox.askokcancel('Are u sure?', f'Вы уверены что хотите снять пользователя {left_combobox.get()} с должности HR?'):
+            for i in workers:
+                if i['login'] == left_combobox.get():
+                    data = f'DELETE_HR;{i["login"]};{i["name"]};'.encode('utf-8')
+                    sock.send(data + bytearray(512 - len(data)))
+                    data = sock.recv(256).decode('utf-8')
+                    data = data[:data.rfind(';')]
+                    if data != 'SUCCESS':
+                        messagebox.showerror('FAIL', data[data.find(';') + 1:])
+                    break
+            else:
+                messagebox.showerror('FAIL', 'Такого аккаунта не существует')
+
+
     workers = sock.recv(2048).decode('utf-8')
     workers = json.loads(workers[:workers.rfind(';')])
 
@@ -305,6 +336,11 @@ def hr_window():
 
     ctk.CTkButton(left_frame, text='Удалить профиль', fg_color='#a6252e', hover_color='#890023',
                   font=('Helvetica', 14), command=delete_profile).pack(anchor='sw', pady=5, padx=5, fill='x', side='bottom')
+
+    ctk.CTkButton(left_frame, text='Повысить до HR', font=('Helvetica', 14), command=add_hr).pack(pady=5, padx=5, fill='x')
+
+    ctk.CTkButton(left_frame, text='Снять с должности HR', fg_color='#a6252e', hover_color='#890023',
+                  font=('Helvetica', 14), command=delete_hr).pack(pady=5, padx=5, fill='x')
 
     right_combobox = ctk.CTkComboBox(right_frame, values=list(workers_without_login))
     right_combobox.pack(anchor='nw', padx=5, pady=5, fill='x')
